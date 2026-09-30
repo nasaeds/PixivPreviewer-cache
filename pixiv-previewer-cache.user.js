@@ -1,17 +1,21 @@
 // ==UserScript==
-// @name                Pixiv Previewer (Dev)
-// @name:ja             Pixiv Previewer (Dev)
-// @name:ru             Pixiv Previewer (Dev)
-// @name:zh-CN          Pixiv Previewer (Dev)
-// @name:zh-TW          Pixiv Previewer (Dev)
-// @namespace           https://github.com/Ocrosoft/PixivPreviewer
-// @version             3.8.7
+// @name                Pixiv Previewer Cache Mod
+// @name:ja             Pixiv Previewer Cache Mod
+// @name:ru             Pixiv Previewer Cache Mod
+// @name:zh-CN          Pixiv Previewer 收藏数缓存版
+// @name:zh-TW          Pixiv Previewer 收藏數快取版
+// @namespace           https://github.com/nasaeds/PixivPreviewer-cache
+// @version             3.8.7.1
 // @description         Display preview images (support single image, multiple images, moving images); Download animation(.gif); Sorting the search page by favorite count(and display it).
-// @description:zh-CN   显示预览图（支持单图，多图，动图）；动图 GIF 下载；搜索页按热门度（收藏数）排序并显示收藏数。
+// @description:zh-CN   显示预览图（支持单图，多图，动图）；动图 GIF 下载；搜索页按热门度（收藏数）排序并显示收藏数。本修改版新增：收藏数本地缓存（避开 pixiv 速率限制）、深浅色主题、缓存状态标记。
 // @description:ja      プレビュー画像の表示（単一画像、複数画像、動画のサポート）; アニメーションのダウンロード（.gif）; お気に入りの数で検索ページをソートします（そして表示します）。
 // @description:zh-TW   顯示預覽圖像（支持單幅圖像，多幅圖像，運動圖像）； 下載動畫（.gif）; 按收藏夾數對搜索頁進行排序（並顯示）。
 // @description:ru      Отображение превью изображений (поддержка одиночных, множественных и анимированных изображений); Скачивание анимаций (.gif); Сортировка страницы поиска по количеству добавлений в закладки (с отображением количества).
 // @author              Ocrosoft
+// @homepageURL         https://github.com/nasaeds/PixivPreviewer-cache
+// @supportURL          https://github.com/nasaeds/PixivPreviewer-cache/issues
+// @downloadURL         https://raw.githubusercontent.com/nasaeds/PixivPreviewer-cache/master/pixiv-previewer-cache.user.js
+// @updateURL           https://raw.githubusercontent.com/nasaeds/PixivPreviewer-cache/master/pixiv-previewer-cache.user.js
 // @match               *://www.pixiv.net/*
 // @grant               unsafeWindow
 // @grant               GM.xmlHttpRequest
@@ -23,6 +27,16 @@
 // @require             https://openuserjs.org/src/libs/sizzle/GM_config.js
 // @require             https://greasyfork.org/scripts/2963-gif-js/code/gifjs.js?version=8596
 // ==/UserScript==
+
+// ---------------------------------------------------------------------------
+// 【修改声明 / Modification notice】
+// 本文件是 PixivPreviewer 的修改版，基于原版 3.8.7。
+//   原作者：Ocrosoft    https://github.com/Ocrosoft/PixivPreviewer
+//   修改者：nasaeds
+//   修改日期：2026-10-01
+//   修改内容：新增收藏数本地缓存与缓存状态标记、深浅色主题；详见 README.md。
+// 许可：GPLv3（与原项目一致）。本修改版同样以 GPLv3 发布，不含任何担保。
+// ---------------------------------------------------------------------------
 
 // https://greasyfork.org/zh-CN/scripts/417761-ilog
 function ILog() {
@@ -859,6 +873,13 @@ Texts[Lang.zh_CN] = {
     setting_novelSection: '小说排序',
     setting_close: '关闭',
     setting_maxXhr: '收藏数并发（推荐 64）',
+    setting_bookmarkCache: '收藏数缓存有效期',
+    setting_bookmarkCacheHelp: '缓存后不再重复请求收藏数，直接读取本地值；数值后带⚡表示来自缓存。',
+    setting_cacheOnPreview: '预览时记录收藏数（搜索页以外）',
+    setting_cacheOnSearchPreview: '搜索页预览也记录收藏数（刚搜过的作品会自动跳过）',
+    setting_previewOnlyUncached: '仅在未缓存时获取收藏数（关闭则每次预览都刷新）',
+    cacheExpireLabels: ['不缓存', '1天', '3天', '5天', '7天', '30天', '60天', '半年', '1年', '永不更新'],
+    sort_cachedCount: '（缓存 %1）',
     setting_hideByCountLessThan: '隐藏图片张数少于设定值的作品',
     setting_hideByCountMoreThan: '隐藏图片张数多于设定值的作品',
     // 搜索时过滤值太高
@@ -924,6 +945,13 @@ Texts[Lang.en_US] = {
     setting_novelSection: 'Novel Sorting',
     setting_close: 'Close',
     setting_maxXhr: 'Bookmark count concurrency (recommended 64)',
+    setting_bookmarkCache: 'Bookmark count cache lifetime',
+    setting_bookmarkCacheHelp: 'Cached counts are reused instead of re-fetched; a value followed by ⚡ came from cache.',
+    setting_cacheOnPreview: 'Record bookmark count on preview (outside search pages)',
+    setting_cacheOnSearchPreview: 'Also record on search-page preview (just-searched works are skipped)',
+    setting_previewOnlyUncached: 'Only fetch counts not yet cached (off = refresh on every preview)',
+    cacheExpireLabels: ['No cache', '1 day', '3 days', '5 days', '7 days', '30 days', '60 days', '6 months', '1 year', 'Never expire'],
+    sort_cachedCount: ' (%1 cached)',
     setting_hideByCountLessThan: 'Hide works with image count less than set value',
     setting_hideByCountMoreThan: 'Hide works with image count more than set value',
     sort_noWork: 'No works to display (%1 works hideen)',
@@ -986,6 +1014,13 @@ Texts[Lang.ru_RU] = {
     setting_novelSection: 'Сортировка (Роман)',
     setting_close: 'Закрыть',
     setting_maxXhr: 'Количество закладок (рекомендуется 64)',
+    setting_bookmarkCache: 'Срок хранения кэша закладок',
+    setting_bookmarkCacheHelp: 'Значения берутся из кэша вместо повторных запросов; ⚡ означает, что значение из кэша.',
+    setting_cacheOnPreview: 'Записывать закладки при предпросмотре (кроме страниц поиска)',
+    setting_cacheOnSearchPreview: 'Также записывать при предпросмотре в поиске',
+    setting_previewOnlyUncached: 'Брать только незакэшированные значения (иначе обновлять каждый раз)',
+    cacheExpireLabels: ['Не кэшировать', '1 день', '3 дня', '5 дней', '7 дней', '30 дней', '60 дней', '6 месяцев', '1 год', 'Не обновлять'],
+    sort_cachedCount: ' (%1 из кэша)',
     setting_hideByCountLessThan: 'Скрыть работы с количеством изображений меньше установленного значения',
     setting_hideByCountMoreThan: 'Скрыть работы с количеством изображений больше установленного значения',
     sort_noWork: 'Нет работ для отображения (%1 works hidden)',
@@ -1047,6 +1082,13 @@ Texts[Lang.ja_JP] = {
     setting_novelSection: 'ソート（小説）',
     setting_close: '閉じる',
     setting_maxXhr: 'ブックマーク数の同時リクエスト数（推奨64）',
+    setting_bookmarkCache: 'ブックマーク数のキャッシュ有効期間',
+    setting_bookmarkCacheHelp: 'キャッシュ後は再取得せずローカル値を使用します。数値の後の⚡はキャッシュ由来を示します。',
+    setting_cacheOnPreview: 'プレビュー時にブックマーク数を記録（検索ページ以外）',
+    setting_cacheOnSearchPreview: '検索ページのプレビューでも記録（直前に検索した作品は自動でスキップ）',
+    setting_previewOnlyUncached: '未キャッシュの作品のみ取得（オフなら毎回更新）',
+    cacheExpireLabels: ['キャッシュしない', '1日', '3日', '5日', '7日', '30日', '60日', '半年', '1年', '更新しない'],
+    sort_cachedCount: '（キャッシュ %1）',
     setting_hideByCountLessThan: '画像数が設定値未満の作品を非表示',
     setting_hideByCountMoreThan: '画像数が設定値を超える作品を非表示',
     sort_noWork: '表示する作品がありません（%1 作品が非表示）',
@@ -1095,6 +1137,19 @@ let initialUrl = location.href;
 let g_settings;
 // 排序时同时请求收藏量的 Request 数量，没必要太多，并不会加快速度
 let g_maxXhr = 64;
+// 收藏数缓存：illustId -> [bookmarkCount, likeCount, viewCount, 时间戳]
+let g_bookmarkCache = null;
+// 缓存是否有改动，用来决定是否需要写回 localStorage
+let g_bookmarkCacheDirty = false;
+const g_bookmarkCacheKey = 'PixivPreviewBookmarkCache';
+// 预览时已经补过请求的作品，避免反复鼠标经过重复请求
+let g_previewCacheRequested = new Set();
+// 本次页面会话内刚写入过缓存的作品（搜索页预览时无论如何不再请求）
+let g_sessionCachedIds = new Set();
+// 缓存条数上限，超出后按时间戳淘汰最旧的
+const g_bookmarkCacheMaxEntries = 20000;
+// 单条写入的延迟落盘定时器
+let g_bookmarkCacheSaveTimer = null;
 // 排序是否完成（如果排序时页面出现了非刷新切换，强制刷新）
 let g_sortComplete = true;
 
@@ -2364,7 +2419,7 @@ function gmcBuildStyle() {
       #gmc-frame_wrapper
       {
         display: flow-root !important;
-        padding: 2rem !important;
+        padding: 2rem 2rem 0 2rem !important;
       }
 
       /* Sections */
@@ -2650,19 +2705,25 @@ function gmcBuildStyle() {
 
       #gmc-frame #gmc-frame_buttons_holder
       {
-        position: fixed;
-        width: 85%;
+        position: sticky;
+        bottom: 0;
+        width: 100%;
         text-align: right;
 
-        left: 50%;
-        bottom: 2%;
-        transform: translate(-50%, 0%);
+        clear: both;
+        left: auto;
+        transform: none;
+
         padding: 1rem;
 
-        border-radius: 0.375rem;
+        border-radius: 0;
 
         display: flex;
         align-items: center;
+        box-sizing: border-box;
+        gap: 0.5rem;
+        background: none;
+        box-shadow: none !important;
       }
 
       #gmc-frame #gmc-frame_buttons_holder .left-aligned
@@ -2735,8 +2796,9 @@ function gmcBuildStyle() {
 
         #gmc-frame_buttons_holder
         {
-          background-color: #FFFFFF;
-          box-shadow: 0 0 0 1px #D0D7DE, 0 16px 32px rgba(1,4,9,0.2) !important;
+          background-color: transparent;
+          box-shadow: none !important;
+          border-top: none;
         }
 
         #gmc-frame input[type="text"],
@@ -2749,6 +2811,13 @@ function gmcBuildStyle() {
         #gmc-frame select
         {
           background-color: #F6F8FA;
+          color: #1F2328 !important;
+        }
+
+        #gmc-frame select option
+        {
+          background-color: #FFFFFF;
+          color: #1F2328;
         }
 
         #gmc-frame select:hover
@@ -2863,8 +2932,258 @@ function gmcBuildStyle() {
         #gmc-frame_hideByTagList_var {
             display: none !important;
         }
+
+      /* Dark theme overrides */
+      #gmc-frame[data-theme="dark"]
+      {
+        background-color: #0d1117;
+        color: #c9d1d9;
+        box-shadow: 0 0 0 1px #30363d, 0 16px 32px rgba(1,4,9,0.6) !important;
+      }
+
+      #gmc-frame[data-theme="dark"] .section_header_holder
+      {
+        background-color: #161b22;
+        border: 1px solid #30363d;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-frame_buttons_holder
+      {
+        background-color: transparent;
+        box-shadow: none !important;
+        border-top: none;
+      }
+
+      #gmc-frame[data-theme="dark"] input[type="text"],
+      #gmc-frame[data-theme="dark"] textarea,
+      #gmc-frame[data-theme="dark"] select
+      {
+        border: 1px solid #30363d;
+        background-color: #0d1117;
+        color: #c9d1d9 !important;
+      }
+
+      #gmc-frame[data-theme="dark"] select option
+      {
+        background-color: #161b22;
+        color: #c9d1d9;
+      }
+
+      #gmc-frame[data-theme="dark"] select:hover
+      {
+        background-color: #161b22;
+        border-color: #c9d1d926;
+      }
+
+      #gmc-frame[data-theme="dark"] input[type="text"]:focus,
+      #gmc-frame[data-theme="dark"] textarea:focus
+      {
+        background-color: #161b22;
+      }
+
+      #gmc-frame[data-theme="dark"] [type=button],
+      #gmc-frame[data-theme="dark"] .saveclose_buttons
+      {
+        background-color: #161b22;
+        border-color: #30363d;
+        box-shadow: 0 1px 0 rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+        color: #c9d1d9;
+      }
+
+      #gmc-frame[data-theme="dark"] [type=button]:hover,
+      #gmc-frame[data-theme="dark"] .saveclose_buttons:hover
+      {
+        background-color: #21262d;
+        border-color: #30363d;
+      }
+
+      #gmc-frame[data-theme="dark"] .gmc-checkbox
+      {
+        border-color: #484f58;
+      }
+
+      #gmc-frame[data-theme="dark"] input[type="radio"]
+      {
+        color: #484f58;
+      }
+
+      #gmc-frame[data-theme="dark"] svg
+      {
+        fill: #c9d1d9;
+      }
+
+      #gmc-frame[data-theme="dark"] .section_header
+      {
+        border-bottom: 1px solid #30363d;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-frame_section_3 .config_var:not(:last-child),
+      #gmc-frame[data-theme="dark"] #gmc-frame_section_4 .config_var:not(:last-child)
+      {
+        border-bottom: 1px solid #30363d;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-frame_saveBtn
+      {
+        background-color: #238636;
+        border-color: rgba(0, 0, 0, 0.4);
+        box-shadow: rgba(0, 0, 0, 0.2) 0px 1px 0px;
+        color: #FFFFFF;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-frame_saveBtn:hover
+      {
+        background-color: #2ea043;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-frame_section_4
+      {
+        border: 1px solid #FF818266;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-frame_section_4 input
+      {
+        background-color: #0d1117;
+        border-color: #30363d;
+        box-shadow: 0 1px 0 rgba(0,0,0,0.2);
+        color: #f85149;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-frame_section_4 input:hover
+      {
+        background-color: #da3633;
+        border-color: #30363d;
+        color: #ffffff;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-saved
+      {
+        color: #3fb950;
+      }
+
+      #gmc-frame[data-theme="dark"] #gmc-saved svg path
+      {
+        fill: #3fb950;
+      }
+
+      /* 标题栏：标题在左，主题按钮在右上角 */
+      #gmc-frame #gmc-frame_header
+      {
+        display: flex !important;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      /* Theme toggle button */
+      #gmc-frame #pp-theme-toggle
+      {
+        background: transparent;
+        border: 1px solid #d0d7de;
+        border-radius: 50%;
+        width: 34px;
+        height: 34px;
+        min-width: 34px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        margin: 0;
+        color: #57606a;
+        flex: 0 0 auto;
+      }
+
+      #gmc-frame #pp-theme-toggle:hover
+      {
+        background-color: #EAEEF2;
+      }
+
+      #gmc-frame[data-theme="dark"] #pp-theme-toggle
+      {
+        border-color: #30363d;
+        color: #c9d1d9;
+      }
+
+      #gmc-frame[data-theme="dark"] #pp-theme-toggle:hover
+      {
+        background-color: #21262d;
+      }
+
+      #gmc-frame #pp-theme-toggle svg
+      {
+        width: 18px;
+        height: 18px;
+        fill: currentColor;
+        margin: 0;
+      }
+
+      /* 被主开关联锁的复选框 */
+      #gmc-frame .gmc-checkbox:disabled
+      {
+        cursor: not-allowed;
+        opacity: 0.5;
+      }
+
+      /* 「重置脚本」与「清除缓存」并排放在同一行 */
+      #gmc-frame #gmc-frame_section_0
+      {
+        display: block !important;
+      }
+
+      #gmc-frame #gmc-frame_clearSettings_var,
+      #gmc-frame #gmc-frame_clearFollowedUserCache_var
+      {
+        display: inline-flex !important;
+        width: auto !important;
+        vertical-align: top;
+        margin-right: 1.5rem;
+      }
+
+      #gmc-frame #gmc-frame_clearFollowedUserCache_var
+      {
+        margin-right: 0;
+      }
       `;
     document.head.appendChild(gmcFrameStyle);
+}
+function currentGmcTheme() {
+    let frame = document.getElementById('gmc-frame');
+    return (frame && frame.getAttribute('data-theme') === 'dark') ? 'dark' : 'light';
+}
+function applyGmcTheme(theme) {
+    let frame = document.getElementById('gmc-frame');
+    if (frame) {
+        frame.setAttribute('data-theme', theme);
+    }
+    // 即使设置面板尚未创建也要保存，保证下次打开生效
+    SetLocalStorage('PixivPreviewerTheme', theme);
+    let btn = document.getElementById('pp-theme-toggle');
+    if (btn) {
+        btn.innerHTML = theme === 'dark' ? sunIcon() : moonIcon();
+    }
+}
+function ensureThemeToggleButton() {
+    // 主题切换按钮放在设置浮窗的右上角（标题栏内）
+    let header = document.getElementById('gmc-frame_header');
+    if (!header) return;
+    if (document.getElementById('pp-theme-toggle')) return;
+    let btn = document.createElement('button');
+    btn.id = 'pp-theme-toggle';
+    btn.type = 'button';
+    btn.title = '切换主题 / Toggle theme';
+    btn.innerHTML = currentGmcTheme() === 'dark' ? sunIcon() : moonIcon();
+    btn.addEventListener('click', function () {
+        applyGmcTheme(currentGmcTheme() === 'dark' ? 'light' : 'dark');
+    });
+    header.appendChild(btn);
+}
+function moonIcon() {
+    // Material Symbols: dark_mode
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="18" height="18" fill="currentColor"><path d="M480-120q-151 0-255.5-104.5T120-480q0-138 90-239.5T440-838q13-2 23 3.5t16 14.5q6 9 6.5 21t-7.5 23q-17 26-25.5 55t-8.5 61q0 90 63 153t153 63q31 0 61.5-9t54.5-25q11-7 22.5-6.5T819-479q10 5 15.5 15t3.5 24q-14 138-117.5 229T480-120Zm0-80q88 0 158-48.5T740-375q-20 5-40 8t-40 3q-123 0-209.5-86.5T364-660q0-20 3-40t8-40q-78 32-126.5 102T200-480q0 116 82 198t198 82Zm-10-270Z"/></svg>';
+}
+function sunIcon() {
+    // Material Symbols: light_mode
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="18" height="18" fill="currentColor"><path d="M565-395q35-35 35-85t-35-85q-35-35-85-35t-85 35q-35 35-35 85t35 85q35 35 85 35t85-35Zm-226.5 56.5Q280-397 280-480t58.5-141.5Q397-680 480-680t141.5 58.5Q680-563 680-480t-58.5 141.5Q563-280 480-280t-141.5-58.5ZM80-440q-17 0-28.5-11.5T40-480q0-17 11.5-28.5T80-520h80q17 0 28.5 11.5T200-480q0 17-11.5 28.5T160-440H80Zm720 0q-17 0-28.5-11.5T760-480q0-17 11.5-28.5T800-520h80q17 0 28.5 11.5T920-480q0 17-11.5 28.5T880-440h-80ZM451.5-771.5Q440-783 440-800v-80q0-17 11.5-28.5T480-920q17 0 28.5 11.5T520-880v80q0 17-11.5 28.5T480-760q-17 0-28.5-11.5Zm0 720Q440-63 440-80v-80q0-17 11.5-28.5T480-200q17 0 28.5 11.5T520-160v80q0 17-11.5 28.5T480-40q-17 0-28.5-11.5ZM226-678l-43-42q-12-11-11.5-28t11.5-29q12-12 29-12t28 12l42 43q11 12 11 28t-11 28q-11 12-27.5 11.5T226-678Zm494 495-42-43q-11-12-11-28.5t11-27.5q11-12 27.5-11.5T734-282l43 42q12 11 11.5 28T777-183q-12 12-29 12t-28-12Zm-42-495q-12-11-11.5-27.5T678-734l42-43q11-12 28-11.5t29 11.5q12 12 12 29t-12 28l-43 42q-12 11-28 11t-28-11ZM183-183q-12-12-12-29t12-28l43-42q12-11 28.5-11t27.5 11q12 11 11.5 27.5T282-226l-42 43q-11 12-28 11.5T183-183Zm297-297Z"/></svg>';
 }
 function gmcInitialized() {
     iLog.d('gmcInitialized()');
@@ -2872,6 +3191,7 @@ function gmcInitialized() {
     GMC.css.basic = '';
 
     UpdateLogLevel();
+    applyGmcTheme(GetLocalStorage('PixivPreviewerTheme') === '"dark"' ? 'dark' : 'light');
     StartLoad();
 }
 function gmcOpened() {
@@ -2880,6 +3200,14 @@ function gmcOpened() {
     $('#gmc').removeClass('hidden');
     $('#gmc-frame_saveBtn').text(Texts[g_language].setting_save);
     $('#gmc-frame_closeBtn').text(Texts[g_language].setting_close);
+    ensureThemeToggleButton();
+    LocalizeCacheExpireOptions();
+    let masterCacheEl = document.getElementById('gmc-frame_field_cacheOnPreview');
+    if (masterCacheEl && !masterCacheEl.dataset.ppBound) {
+        masterCacheEl.dataset.ppBound = '1';
+        masterCacheEl.addEventListener('change', UpdateCacheOptionInteractivity);
+    }
+    UpdateCacheOptionInteractivity();
 
     function updateCheckboxes() {
         iLog.d('updateCheckboxes()');
@@ -2992,6 +3320,8 @@ function gmcInit() {
                 click: () => {
                     let user_id = dataLayer[0].user_id;
                     SetLocalStorage('followingOfUid-' + user_id, null, -1);
+                    // 一并清空收藏数缓存，方便手动强制刷新
+                    ClearBookmarkCache();
                 },
             },
 
@@ -3117,6 +3447,38 @@ function gmcInit() {
                 type: 'text',
                 default: 64,
             },
+            bookmarkCacheExpire: {
+                label: Texts[g_language].setting_bookmarkCache,
+                type: 'select',
+                options: [
+                    '不缓存',
+                    '1天',
+                    '3天',
+                    '5天',
+                    '7天',
+                    '30天',
+                    '60天',
+                    '半年',
+                    '1年',
+                    '永不更新',
+                ],
+                default: '7天',
+            },
+            cacheOnPreview: {
+                label: Texts[g_language].setting_cacheOnPreview,
+                type: 'checkbox',
+                default: true,
+            },
+            cacheOnSearchPreview: {
+                label: Texts[g_language].setting_cacheOnSearchPreview,
+                type: 'checkbox',
+                default: true,
+            },
+            previewOnlyUncached: {
+                label: Texts[g_language].setting_previewOnlyUncached,
+                type: 'checkbox',
+                default: true,
+            },
 
             enableNovelSort: {
                 label: Texts[g_language].setting_novelSort,
@@ -3209,6 +3571,8 @@ function PixivPreview() {
             if (div.length == 0) {
                 return;
             }
+            // 预览确实展示出来了，顺便记录这件作品的收藏数（已有新鲜缓存则不发请求）
+            CacheBookmarkOnPreview(div.attr('illustId'));
             if (div.css('display') == 'none') {
                 iLog.d('Show main.');
                 AdjustDivPosition();
@@ -4350,10 +4714,13 @@ function PixivSK(callback) {
 
     let completeCount = 0;
     let failCount = 0;
+    let cachedCount = 0;
     let nextBatchIndex = 0;
 
     let GetBookmarkCountUsingFetch = function (index) {
         if (index >= works.length) {
+            // 全部处理完，一次性写回缓存
+            SaveBookmarkCache();
             clearAndUpdateWorks();
             return;
         }
@@ -4361,9 +4728,42 @@ function PixivSK(callback) {
         if (batchCount > g_maxXhr) batchCount = g_maxXhr;
         nextBatchIndex = index + batchCount;
         let completed = 0;
+
+        let updateProgress = () => {
+            let text = Texts[g_language].sort_getBookmarkCount.replace('%1', ++completeCount).replace('%2', works.length);
+            if (cachedCount > 0) {
+                text += Texts[g_language].sort_cachedCount.replace('%1', cachedCount);
+            }
+            if (failCount > 0) {
+                text += ' (' + failCount + ' failed)';
+            }
+            $('#loading').find('#progress').text(text);
+        };
+        let onSettled = () => {
+            if (++completed === batchCount) {
+                GetBookmarkCountUsingFetch(nextBatchIndex);
+            }
+        };
+
         for (let i = 0; i < batchCount; i++) {
             let j = index + i;
             let illustId = works[j].id;
+
+            // 命中未过期的缓存：直接读取本地值，不再发起请求
+            let cached = ReadBookmarkFromCache(illustId);
+            if (cached) {
+                works[j].bookmarkCount = cached.b;
+                works[j].likeCount = cached.l;
+                works[j].viewCount = cached.v;
+                works[j].fromCache = true;
+                ++cachedCount;
+                iLog.d('IllustId: ' + illustId + ' 命中缓存, bookmarkCount: ' + cached.b);
+                updateProgress();
+                // 用微任务延后，避免整批都命中缓存时同步递归过深
+                Promise.resolve().then(onSettled);
+                continue;
+            }
+
             let url = 'https://www.pixiv.net/ajax/illust/' + illustId;
             fetch(url, { credentials: 'omit' })
                 .then(response => response.json())
@@ -4372,6 +4772,8 @@ function PixivSK(callback) {
                         works[j].bookmarkCount = json.body.bookmarkCount;
                         works[j].likeCount = json.body.likeCount;
                         works[j].viewCount = json.body.viewCount;
+                        // 记录本次是否真的写进了缓存，用于打标记
+                        works[j].savedToCache = WriteBookmarkToCache(illustId, json.body.bookmarkCount, json.body.likeCount, json.body.viewCount);
                         iLog.d('IllustId: ' + works[j].id + ', bookmarkCount: ' + works[j].bookmarkCount);
                     } else {
                         iLog.e('Some error occured: ' + (json && json.message));
@@ -4384,14 +4786,8 @@ function PixivSK(callback) {
                     ++failCount;
                 })
                 .finally(() => {
-                    let text = Texts[g_language].sort_getBookmarkCount.replace('%1', ++completeCount).replace('%2', works.length);
-                    if (failCount > 0) {
-                        text += ' (' + failCount + ' failed)';
-                    }
-                    $('#loading').find('#progress').text(text);
-                    if (++completed === batchCount) {
-                        GetBookmarkCountUsingFetch(nextBatchIndex);
-                    }
+                    updateProgress();
+                    onSettled();
                 });
         }
     }
@@ -4525,6 +4921,12 @@ function PixivSK(callback) {
                     countHtml = '👍' + works[i].likeCount;
                 } else if (sortType == 2) {
                     countHtml = '👀' + works[i].viewCount;
+                }
+                // 来自缓存的数值加闪电图标；本次新抓到并已写入缓存的加 offline_pin
+                if (works[i].fromCache) {
+                    countHtml += cacheBoltIcon();
+                } else if (works[i].savedToCache) {
+                    countHtml += offlinePinIcon(13);
                 }
                 let bookmarkCountHTML = '<div style="margin-bottom: 6px; margin-left: 2px;"><div style="color: rgb(7, 95, 166);font-weight: bold;font-size: 13px;line-height: 1;padding: 3px 6px;border-radius: 3px;background: rgb(204, 236, 255);">' + countHtml + '</div></div>';
                 li.find('.ppBookmarkCount').append(bookmarkCountHTML);
@@ -5346,6 +5748,9 @@ function ConvertSettingsFromGMC() {
         'previewFullScreen': GMC.get('previewFullScreen'),
         'previewKey': 17,
         'scrollLockWhenPreview': GMC.get('scrollLockWhenPreview'),
+        'cacheOnPreview': GMC.get('cacheOnPreview'),
+        'cacheOnSearchPreview': GMC.get('cacheOnSearchPreview'),
+        'previewOnlyUncached': GMC.get('previewOnlyUncached'),
     };
     return settings;
 }
@@ -5410,6 +5815,338 @@ function GetSettings() {
     }
 
     return ConvertSettingsFromGMC();
+}
+// 收藏数缓存：显示用的闪电图标（Material Symbols: bolt）
+function cacheBoltIcon() {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="13" height="13" fill="currentColor" style="vertical-align: -2px; margin-left: 3px;"><path d="m422-232 207-248H469l29-227-185 267h139l-30 208Zm-62-128H236q-24 0-35.5-21.5T203-423l299-430q10-14 26-19.5t33 .5q17 6 25 21t6 32l-32 259h155q26 0 36.5 23t-6.5 43L416-100q-11 13-27 17t-31-3q-15-7-23.5-21.5T328-139l32-221Zm111-110Z"/></svg>';
+}
+// 详情页用的「已缓存」图标（Material Symbols: offline_pin）
+function offlinePinIcon(size) {
+    let s = size || 12;
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -960 960 960" width="' + s + '" height="' + s + '" fill="currentColor"><path d="M360-280h240q17 0 28.5-11.5T640-320q0-17-11.5-28.5T600-360H360q-17 0-28.5 11.5T320-320q0 17 11.5 28.5T360-280Zm78-232-58-58q-11-11-28-11t-28 11q-11 11-11 28t11 28l86 86q12 12 28 12t28-12l170-170q12-12 11.5-28.5T635-654q-12-11-28.5-10.5T579-653L438-512Zm42 432q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-80q134 0 227-93t93-227q0-134-93-227t-227-93q-134 0-227 93t-93 227q0 134 93 227t227 93Zm0-320Z"/></svg>';
+}
+// 按界面语言改写缓存档位的显示文字（选项值保持语言中立，便于跨语言共用配置）
+function LocalizeCacheExpireOptions() {
+    let labels = Texts[g_language] && Texts[g_language].cacheExpireLabels;
+    if (!labels || !labels.length) {
+        return;
+    }
+    const canonical = ['不缓存', '1天', '3天', '5天', '7天', '30天', '60天', '半年', '1年', '永不更新'];
+    document.querySelectorAll('#gmc-frame_field_bookmarkCacheExpire option').forEach(function (option) {
+        let index = canonical.indexOf(option.value);
+        if (index >= 0 && labels[index]) {
+            option.textContent = labels[index];
+        }
+    });
+}
+// 搜索页预览子开关只在主开关开启时可交互
+function UpdateCacheOptionInteractivity() {
+    let master = document.getElementById('gmc-frame_field_cacheOnPreview');
+    let child = document.getElementById('gmc-frame_field_cacheOnSearchPreview');
+    if (!master || !child) {
+        return;
+    }
+    child.disabled = !master.checked;
+    let wrap = child.closest ? child.closest('.config_var') : null;
+    if (wrap) {
+        wrap.style.opacity = child.disabled ? '0.45' : '';
+    }
+}
+// 在作品详情页的收藏数后面标记「已缓存」
+function MarkArtworkBookmarkCached(retries) {
+    if (retries === undefined) {
+        retries = 12;
+    }
+    // 收藏数所在的 dd：靠 href 定位，避免依赖会变化的 sc-xxx 类名
+    let dd = document.querySelector('a[href*="bookmark_detail.php"] dd');
+    if (!dd) {
+        if (retries > 0) {
+            setTimeout(function () { MarkArtworkBookmarkCached(retries - 1); }, 500);
+        } else {
+            iLog.d('未找到详情页收藏数元素，跳过缓存标记。');
+        }
+        return;
+    }
+    if (dd.querySelector('.pp-bookmark-cached')) {
+        return;
+    }
+    let span = document.createElement('span');
+    span.className = 'pp-bookmark-cached';
+    span.title = '收藏数已缓存';
+    span.style.cssText = 'display: inline-flex; vertical-align: -2px; margin-left: 3px;';
+    span.innerHTML = offlinePinIcon();
+    dd.appendChild(span);
+    iLog.d('已在详情页收藏数后标记缓存图标。');
+}
+// 缓存有效期（天）：-1 表示永不更新，0 表示不缓存
+function GetBookmarkCacheTTLDays() {
+    const map = {
+        '不缓存': 0,
+        '1天': 1,
+        '3天': 3,
+        '5天': 5,
+        '7天': 7,
+        '30天': 30,
+        '60天': 60,
+        '半年': 182,
+        '1年': 365,
+        '永不更新': -1,
+    };
+    let value = GMC.get('bookmarkCacheExpire');
+    if (value == null || map[value] === undefined) {
+        return 7;
+    }
+    return map[value];
+}
+function LoadBookmarkCache() {
+    if (g_bookmarkCache !== null) {
+        return g_bookmarkCache;
+    }
+    g_bookmarkCache = {};
+    let raw = GetLocalStorage(g_bookmarkCacheKey);
+    if (raw) {
+        try {
+            let parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                g_bookmarkCache = parsed;
+            }
+        } catch (e) {
+            iLog.e('收藏数缓存解析失败，已重建：' + e);
+        }
+    }
+    iLog.d('已载入收藏数缓存，共 ' + Object.keys(g_bookmarkCache).length + ' 条。');
+    return g_bookmarkCache;
+}
+// 按时间戳升序（旧 -> 新）；损坏条目视为 0（最旧），避免比较器返回 NaN
+function BookmarkEntryAgeAsc(a, b) {
+    let ea = g_bookmarkCache[a], eb = g_bookmarkCache[b];
+    let ta = (ea && typeof ea[3] === 'number') ? ea[3] : 0;
+    let tb = (eb && typeof eb[3] === 'number') ? eb[3] : 0;
+    return ta - tb;
+}
+// 淘汰策略：先清掉已过期条目（永不更新档位跳过），再按时间戳砍掉超量的最旧条目
+function PruneBookmarkCache() {
+    if (g_bookmarkCache === null) {
+        return 0;
+    }
+    let ttl = GetBookmarkCacheTTLDays();
+    let now = Date.now();
+    let removed = 0;
+
+    if (ttl > 0) {
+        for (let key of Object.keys(g_bookmarkCache)) {
+            let entry = g_bookmarkCache[key];
+            if (!entry || typeof entry[3] !== 'number' || (now - entry[3]) > ttl * 86400000) {
+                delete g_bookmarkCache[key];
+                removed++;
+            }
+        }
+    }
+
+    let keys = Object.keys(g_bookmarkCache);
+    if (keys.length > g_bookmarkCacheMaxEntries) {
+        keys.sort(BookmarkEntryAgeAsc);
+        let drop = keys.length - g_bookmarkCacheMaxEntries;
+        for (let i = 0; i < drop; i++) {
+            delete g_bookmarkCache[keys[i]];
+            removed++;
+        }
+    }
+
+    if (removed > 0) {
+        g_bookmarkCacheDirty = true;
+        iLog.i('收藏数缓存清理：淘汰 ' + removed + ' 条，剩余 ' + Object.keys(g_bookmarkCache).length + ' 条。');
+    }
+    return removed;
+}
+function SaveBookmarkCache() {
+    if (!g_bookmarkCacheDirty || g_bookmarkCache === null) {
+        return;
+    }
+    PruneBookmarkCache();
+    try {
+        SetLocalStorage(g_bookmarkCacheKey, g_bookmarkCache);
+        g_bookmarkCacheDirty = false;
+        iLog.i('收藏数缓存已保存，共 ' + Object.keys(g_bookmarkCache).length + ' 条。');
+    } catch (e) {
+        // 多半是超出 localStorage 配额：砍掉一半最旧的再试一次
+        iLog.w('收藏数缓存保存失败，尝试清理后重试：' + e);
+        let keys = Object.keys(g_bookmarkCache);
+        if (keys.length > 100) {
+            keys.sort(BookmarkEntryAgeAsc);
+            let drop = Math.floor(keys.length / 2);
+            for (let i = 0; i < drop; i++) {
+                delete g_bookmarkCache[keys[i]];
+            }
+            iLog.w('收藏数缓存超限，已淘汰最旧的 ' + drop + ' 条。');
+        }
+        try {
+            SetLocalStorage(g_bookmarkCacheKey, g_bookmarkCache);
+            g_bookmarkCacheDirty = false;
+            iLog.i('收藏数缓存已保存（清理后），共 ' + Object.keys(g_bookmarkCache).length + ' 条。');
+        } catch (e2) {
+            iLog.e('收藏数缓存保存仍然失败：' + e2);
+        }
+    }
+}
+function ClearBookmarkCache() {
+    g_bookmarkCache = {};
+    g_bookmarkCacheDirty = false;
+    SetLocalStorage(g_bookmarkCacheKey, '');
+    // 会话内的记录也要清，否则本次页面里"刚缓存过"的作品会被一直跳过
+    g_sessionCachedIds.clear();
+    g_previewCacheRequested.clear();
+    iLog.i('收藏数缓存已清空。');
+}
+// 单条写入延迟落盘：连续预览多件作品时避免每件都序列化整块缓存
+function ScheduleBookmarkCacheSave() {
+    if (g_bookmarkCacheSaveTimer) {
+        return;
+    }
+    g_bookmarkCacheSaveTimer = setTimeout(function () {
+        g_bookmarkCacheSaveTimer = null;
+        SaveBookmarkCache();
+    }, 3000);
+}
+// 页面关闭/切走时立刻落盘，避免防抖窗口内离开导致这一条写入丢失
+window.addEventListener('pagehide', function () {
+    if (g_bookmarkCacheSaveTimer) {
+        clearTimeout(g_bookmarkCacheSaveTimer);
+        g_bookmarkCacheSaveTimer = null;
+    }
+    SaveBookmarkCache();
+});
+// 从作品页内嵌的 preload-data 里读取收藏数（不发请求）
+function ReadBookmarkCountFromPreloadData(illustId) {
+    try {
+        let meta = document.querySelector('meta#meta-preload-data');
+        if (!meta) {
+            return null;
+        }
+        let raw = meta.getAttribute('content');
+        if (!raw) {
+            return null;
+        }
+        let data = JSON.parse(raw);
+        let illust = data && data.illust ? data.illust[illustId] : null;
+        if (!illust || typeof illust.bookmarkCount !== 'number') {
+            return null;
+        }
+        return {
+            b: illust.bookmarkCount,
+            l: Number(illust.likeCount) || 0,
+            v: Number(illust.viewCount) || 0,
+        };
+    } catch (e) {
+        iLog.d('解析内嵌作品数据失败：' + e);
+        return null;
+    }
+}
+// 请求单件作品的收藏数并写入缓存（覆盖旧值）
+function FetchAndCacheBookmark(illustId, reason, onSuccess) {
+    fetch('https://www.pixiv.net/ajax/illust/' + illustId, { credentials: 'omit' })
+        .then(response => response.json())
+        .then(json => {
+            if (json && !json.error && json.body) {
+                WriteBookmarkToCache(illustId, json.body.bookmarkCount, json.body.likeCount, json.body.viewCount);
+                ScheduleBookmarkCacheSave();
+                iLog.d('记录收藏数(' + reason + ') illustId=' + illustId + ', bookmarkCount=' + json.body.bookmarkCount);
+                if (onSuccess) {
+                    onSuccess();
+                }
+            }
+        })
+        .catch(err => {
+            iLog.e('记录收藏数失败(' + reason + ') illustId=' + illustId + ': ' + err);
+        });
+}
+// 作品详情页：把当前作品的收藏数写入缓存，覆盖旧值
+function CacheCurrentArtworkBookmark() {
+    if (GetBookmarkCacheTTLDays() === 0) {
+        return;
+    }
+    let matched = location.href.match(/artworks\/(\d+)/);
+    if (!matched) {
+        return;
+    }
+    let illustId = matched[1];
+
+    // 缓存仍在有效期内：直接沿用，不请求也不覆盖（省一个请求）
+    if (ReadBookmarkFromCache(illustId)) {
+        iLog.d('详情页收藏数缓存仍新鲜，跳过记录 illustId=' + illustId);
+        MarkArtworkBookmarkCached();
+        return;
+    }
+
+    // 缓存缺失或已过期，需要更新
+    // 优先用页面自带的数据，省一次请求
+    let fromPage = ReadBookmarkCountFromPreloadData(illustId);
+    if (fromPage) {
+        WriteBookmarkToCache(illustId, fromPage.b, fromPage.l, fromPage.v);
+        ScheduleBookmarkCacheSave();
+        iLog.d('记录收藏数(详情页) illustId=' + illustId + ', bookmarkCount=' + fromPage.b);
+        MarkArtworkBookmarkCached();
+        return;
+    }
+    FetchAndCacheBookmark(illustId, '详情页', MarkArtworkBookmarkCached);
+}
+// 预览某件作品时：仅当缓存缺失或已过期才补一次请求（覆盖旧值）
+function CacheBookmarkOnPreview(illustId) {
+    if (!illustId || GetBookmarkCacheTTLDays() === 0) {
+        return;
+    }
+    // 主开关：搜索页以外的预览是否记录
+    if (GMC.get('cacheOnPreview') === false) {
+        return;
+    }
+    let isSearchPage = (g_pageType == PageType.Search);
+    if (isSearchPage) {
+        // 搜索页由子开关单独控制
+        if (GMC.get('cacheOnSearchPreview') === false) {
+            return;
+        }
+        // 本次刚搜过/刚缓存过的作品，无论如何都不再请求
+        if (g_sessionCachedIds.has(String(illustId))) {
+            return;
+        }
+    }
+    // 默认只补齐未缓存的；关掉该选项则每次预览都刷新
+    if (GMC.get('previewOnlyUncached') !== false && ReadBookmarkFromCache(illustId)) {
+        return;
+    }
+    if (g_previewCacheRequested.has(illustId)) {
+        return;
+    }
+    g_previewCacheRequested.add(illustId);
+    FetchAndCacheBookmark(illustId, isSearchPage ? '搜索页预览' : '预览');
+}
+// 命中且未过期时返回 {b, l, v}，否则返回 null
+function ReadBookmarkFromCache(illustId) {
+    let ttl = GetBookmarkCacheTTLDays();
+    if (ttl === 0) {
+        return null;
+    }
+    let cache = LoadBookmarkCache();
+    let entry = cache[illustId];
+    if (!entry) {
+        return null;
+    }
+    // 永不更新：不做过期判断
+    if (ttl !== -1 && (Date.now() - entry[3]) > ttl * 86400000) {
+        return null;
+    }
+    return { b: entry[0], l: entry[1], v: entry[2] };
+}
+function WriteBookmarkToCache(illustId, bookmarkCount, likeCount, viewCount) {
+    if (GetBookmarkCacheTTLDays() === 0) {
+        return false;
+    }
+    let cache = LoadBookmarkCache();
+    cache[illustId] = [bookmarkCount, likeCount, viewCount, Date.now()];
+    g_bookmarkCacheDirty = true;
+    // 记入本次会话，搜索页预览时不再重复请求
+    g_sessionCachedIds.add(String(illustId));
+    return true;
 }
 function UpdateLogLevel() {
     let level = GMC.get('logLevel');
@@ -5625,6 +6362,8 @@ function Load() {
         try {
             if (g_pageType == PageType.Artwork) {
                 Pages[g_pageType].Work();
+                // 详情页看到的收藏数必定是最新的，写入缓存覆盖旧值
+                CacheCurrentArtworkBookmark();
                 if (g_settings.enablePreview) {
                     PixivPreview();
                 }
