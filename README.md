@@ -31,6 +31,8 @@
 | **缓存状态标记** | 列表里数值后带 ⚡ 表示来自缓存、📌 表示本次新抓到并已缓存；详情页收藏数后带 📌 表示该作品已在缓存中 |
 | **详情页 / 预览反哺缓存** | 打开作品详情页、或使用脚本预览时，会把看到的最新收藏数写回缓存 |
 | **预览写入开关** | 可分别控制「搜索页以外的预览」和「搜索页预览」是否记录，另有「仅未缓存时获取」选项 |
+| **缓存条数显示** | 设置面板里直接显示当前缓存了多少条 |
+| **缓存导出 / 导入** | 把缓存导成 JSON 文件备份，随时导入恢复（换浏览器、清数据、重装都可以用） |
 | **深浅色主题** | 设置面板右上角圆形按钮切换，选择会记住 |
 | **档位本地化** | 缓存有效期下拉框的显示文字跟随界面语言（存储值不变，换语言不丢配置） |
 
@@ -63,6 +65,9 @@
 | **预览时记录收藏数（搜索页以外）** | 开 | 主开关。关闭后，搜索页以外的预览不再写入缓存 |
 | **搜索页预览也记录收藏数** | 开 | 子开关，**仅在主开关开启时可交互**。搜索页的作品排序时基本已经抓过，通常不需要再补 |
 | **仅在未缓存时获取收藏数** | 开 | 开启=预览只补未缓存的作品；关闭=每次预览都重新获取并覆盖 |
+| **缓存条数：N（点击刷新）** | — | 显示当前缓存条数，点一下可刷新 |
+| **导出缓存** | — | 把缓存下载成一个 `pixiv-bookmark-cache-<时间>.json` 文件 |
+| **导入缓存** | — | 选择之前导出的 JSON 合并进来。同一个作品取**时间戳更新**的那条，不会用旧数据覆盖新数据；也接受裸的 `{作品ID: [收藏, 点赞, 浏览, 时间戳]}` 格式 |
 
 ---
 
@@ -102,11 +107,23 @@ JSON.parse(localStorage.getItem('PixivPreviewBookmarkCache'))
 
 设置面板 →「排序」分区 → **清除缓存** 按钮（会一并清除"关注画师"缓存）。清除后缓存会在下次搜索时重新积累。
 
+**清之前想留个底？** 先点 **导出缓存**，会下载一个 JSON 文件；以后任何时候点 **导入缓存** 选它就能恢复（合并式，不会丢掉期间新攒的条目）。
+
 ### 淘汰与容量
 
 - 每次保存前清理**已过期**条目（选 `永不更新` 时不清理）
-- 超过 **20000 条**时按时间戳淘汰最旧的（约 1–1.5 MB）
+- 超过 **20000 条**时按时间戳淘汰最旧的
 - 若 localStorage 写入因超配额失败，会砍掉一半最旧的自动重试一次
+
+实测数据（Chromium，单条约 40 字符）：
+
+| 条数 | 占用 | 一次完整落盘 | 启动读取 |
+|---|---|---|---|
+| 2,551 | 91 KB | ~1.5 ms | ~0.4 ms |
+| 20,000 | 718 KB | ~11 ms | ~3 ms |
+| 60,000 | 2.1 MB | ~46 ms | ~12 ms |
+
+Firefox 的 localStorage 每域名配额默认约 **5 MB**，按上面的密度理论上能装约 **12 万条**——上限 20000 是很保守的取值，正常情况下远够用。
 
 ---
 
@@ -121,6 +138,8 @@ pixiv 改用 Next.js 后，作品数据不再内嵌在页面里（老版的 `<me
 **Q：会不会越用越慢？**
 不会。缓存读取是一次 JSON 解析 + 哈希查找；写入按 3 秒防抖合并，排序结束后一次性落盘。
 
+进度文字的刷新做了限流（最快 120 ms 一次）：命中缓存的作品是在微任务里连续处理的，如果每条都去写一次界面，几千条会挤在一起把主线程堵住。
+
 **Q：换了界面语言，缓存档位设置会丢吗？**
 不会。档位的**存储值**与语言无关，只有显示文字会变。
 
@@ -130,7 +149,9 @@ pixiv 改用 Next.js 后，作品数据不再内嵌在页面里（老版的 `<me
 
 - **未经过完整实跑验证**：缓存写入、列表图标已在真实环境观察到生效；但详情页 📌 的实际落位、四个开关的联动、以及缓存达到上限时的淘汰行为，**尚未在真实使用中完整跑过一轮**。
 - 详情页的 📌 图标是注入到 pixiv 的 React 渲染子树里的，若 pixiv 重新渲染那个节点（例如你点了收藏），图标可能消失——不影响功能，刷新即可。
-- 缓存上限 20000 是估计值，未实测过 pixiv.net 的真实 localStorage 配额。
+- 缓存上限 20000 是按 Firefox 默认配额（约 5 MB）取的保守值，实测单条约 40 字符，理论上限约 12 万条。
+- 导出/导入依赖浏览器的下载与文件选择；若浏览器拦截下载，需在地址栏允许本网站下载。
+- 导入时**不会**校验作品 ID 是否真实存在，也不会校验收藏数是否合理——只按时间戳决定是否覆盖。
 - 预览会为**未缓存**的作品各增加 1 个请求；如果你正被限速，可关掉相关开关。
 - 收藏数来自 pixiv 网页端接口，pixiv 改动接口则脚本需要跟进。
 
@@ -153,5 +174,7 @@ pixiv 改用 Next.js 后，作品数据不再内嵌在页面里（老版的 `<me
 A modified fork of [PixivPreviewer](https://github.com/Ocrosoft/PixivPreviewer) (by **Ocrosoft**, GPLv3), based on upstream 3.8.7.
 
 The upstream script re-fetches every artwork's bookmark count on each sort, which pixiv rate-limits. This fork **caches bookmark counts in localStorage** with a configurable TTL, so repeat searches read local values instead of hitting the API. Also adds light/dark themes and cache-status markers (⚡ = value read from cache, 📌 = value just fetched and cached).
+
+The settings panel also shows the current cache size and can **export / import** the cache as a JSON file (useful as a backup — merge on import keeps the newer entry per artwork).
 
 Licensed under **GPLv3**, same as upstream. No warranty.

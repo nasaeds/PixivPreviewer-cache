@@ -5,7 +5,7 @@
 // @name:zh-CN          Pixiv Previewer 收藏数缓存版
 // @name:zh-TW          Pixiv Previewer 收藏數快取版
 // @namespace           https://github.com/nasaeds/PixivPreviewer-cache
-// @version             3.8.7.1
+// @version             3.8.7.2
 // @description         Display preview images (support single image, multiple images, moving images); Download animation(.gif); Sorting the search page by favorite count(and display it).
 // @description:zh-CN   显示预览图（支持单图，多图，动图）；动图 GIF 下载；搜索页按热门度（收藏数）排序并显示收藏数。本修改版新增：收藏数本地缓存（避开 pixiv 速率限制）、深浅色主题、缓存状态标记。
 // @description:ja      プレビュー画像の表示（単一画像、複数画像、動画のサポート）; アニメーションのダウンロード（.gif）; お気に入りの数で検索ページをソートします（そして表示します）。
@@ -876,6 +876,13 @@ Texts[Lang.zh_CN] = {
     setting_maxXhr: '收藏数并发（推荐 64）',
     setting_bookmarkCache: '收藏数缓存有效期',
     setting_bookmarkCacheHelp: '缓存后不再重复请求收藏数，直接读取本地值；数值后带⚡表示来自缓存。',
+    setting_cacheInfo: '缓存条数：%1（点击刷新）',
+    setting_exportCache: '导出缓存',
+    setting_importCache: '导入缓存',
+    cacheExportEmpty: '缓存是空的，没有可导出的内容。',
+    cacheExportDone: '已导出 %1 条缓存，请查看浏览器的下载。',
+    cacheImportDone: '导入完成：新增 %1 条，更新 %2 条，跳过 %3 条，当前共 %4 条。',
+    cacheImportFailed: '导入失败：',
     setting_cacheOnPreview: '预览时记录收藏数（搜索页以外）',
     setting_cacheOnSearchPreview: '搜索页预览也记录收藏数（刚搜过的作品会自动跳过）',
     setting_previewOnlyUncached: '仅在未缓存时获取收藏数（关闭则每次预览都刷新）',
@@ -948,6 +955,13 @@ Texts[Lang.en_US] = {
     setting_maxXhr: 'Bookmark count concurrency (recommended 64)',
     setting_bookmarkCache: 'Bookmark count cache lifetime',
     setting_bookmarkCacheHelp: 'Cached counts are reused instead of re-fetched; a value followed by ⚡ came from cache.',
+    setting_cacheInfo: 'Cached entries: %1 (click to refresh)',
+    setting_exportCache: 'Export cache',
+    setting_importCache: 'Import cache',
+    cacheExportEmpty: 'The cache is empty, nothing to export.',
+    cacheExportDone: 'Exported %1 cached entries. Check your browser downloads.',
+    cacheImportDone: 'Import done: %1 added, %2 updated, %3 skipped, %4 total now.',
+    cacheImportFailed: 'Import failed: ',
     setting_cacheOnPreview: 'Record bookmark count on preview (outside search pages)',
     setting_cacheOnSearchPreview: 'Also record on search-page preview (just-searched works are skipped)',
     setting_previewOnlyUncached: 'Only fetch counts not yet cached (off = refresh on every preview)',
@@ -1017,6 +1031,13 @@ Texts[Lang.ru_RU] = {
     setting_maxXhr: 'Количество закладок (рекомендуется 64)',
     setting_bookmarkCache: 'Срок хранения кэша закладок',
     setting_bookmarkCacheHelp: 'Значения берутся из кэша вместо повторных запросов; ⚡ означает, что значение из кэша.',
+    setting_cacheInfo: 'Записей в кэше: %1 (нажмите, чтобы обновить)',
+    setting_exportCache: 'Экспорт кэша',
+    setting_importCache: 'Импорт кэша',
+    cacheExportEmpty: 'Кэш пуст, экспортировать нечего.',
+    cacheExportDone: 'Экспортировано %1 записей. Проверьте загрузки браузера.',
+    cacheImportDone: 'Импорт завершён: добавлено %1, обновлено %2, пропущено %3, всего %4.',
+    cacheImportFailed: 'Ошибка импорта: ',
     setting_cacheOnPreview: 'Записывать закладки при предпросмотре (кроме страниц поиска)',
     setting_cacheOnSearchPreview: 'Также записывать при предпросмотре в поиске',
     setting_previewOnlyUncached: 'Брать только незакэшированные значения (иначе обновлять каждый раз)',
@@ -1085,6 +1106,13 @@ Texts[Lang.ja_JP] = {
     setting_maxXhr: 'ブックマーク数の同時リクエスト数（推奨64）',
     setting_bookmarkCache: 'ブックマーク数のキャッシュ有効期間',
     setting_bookmarkCacheHelp: 'キャッシュ後は再取得せずローカル値を使用します。数値の後の⚡はキャッシュ由来を示します。',
+    setting_cacheInfo: 'キャッシュ件数：%1（クリックで更新）',
+    setting_exportCache: 'キャッシュをエクスポート',
+    setting_importCache: 'キャッシュをインポート',
+    cacheExportEmpty: 'キャッシュが空です。エクスポートする内容がありません。',
+    cacheExportDone: '%1 件をエクスポートしました。ブラウザのダウンロードをご確認ください。',
+    cacheImportDone: 'インポート完了：追加 %1 件、更新 %2 件、スキップ %3 件、合計 %4 件。',
+    cacheImportFailed: 'インポート失敗：',
     setting_cacheOnPreview: 'プレビュー時にブックマーク数を記録（検索ページ以外）',
     setting_cacheOnSearchPreview: '検索ページのプレビューでも記録（直前に検索した作品は自動でスキップ）',
     setting_previewOnlyUncached: '未キャッシュの作品のみ取得（オフなら毎回更新）',
@@ -3144,6 +3172,34 @@ function gmcBuildStyle() {
       {
         margin-right: 0;
       }
+
+      /* 「导出缓存」与「导入缓存」也并排放在同一行 */
+      #gmc-frame #gmc-frame_exportBookmarkCache_var,
+      #gmc-frame #gmc-frame_importBookmarkCache_var
+      {
+        display: inline-flex !important;
+        width: auto !important;
+        vertical-align: top;
+        margin-right: 1.5rem;
+      }
+
+      #gmc-frame #gmc-frame_importBookmarkCache_var
+      {
+        margin-right: 0;
+      }
+
+      /* 「缓存条数」是信息行，占满一行、左对齐 */
+      #gmc-frame #gmc-frame_bookmarkCacheInfo_var
+      {
+        display: block !important;
+        width: auto !important;
+      }
+
+      #gmc-frame #gmc-frame_bookmarkCacheInfo
+      {
+        text-align: left;
+        cursor: pointer;
+      }
       `;
     document.head.appendChild(gmcFrameStyle);
 }
@@ -3209,6 +3265,7 @@ function gmcOpened() {
         masterCacheEl.addEventListener('change', UpdateCacheOptionInteractivity);
     }
     UpdateCacheOptionInteractivity();
+    RefreshBookmarkCacheInfo();
 
     function updateCheckboxes() {
         iLog.d('updateCheckboxes()');
@@ -3479,6 +3536,29 @@ function gmcInit() {
                 label: Texts[g_language].setting_previewOnlyUncached,
                 type: 'checkbox',
                 default: true,
+            },
+            // 这三项是操作按钮：条数显示、导出、导入。条数在打开面板时刷新。
+            bookmarkCacheInfo: {
+                label: Texts[g_language].setting_cacheInfo.replace('%1', '--'),
+                type: 'button',
+                size: 34,
+                click: () => {
+                    RefreshBookmarkCacheInfo();
+                },
+            },
+            exportBookmarkCache: {
+                label: Texts[g_language].setting_exportCache,
+                type: 'button',
+                click: () => {
+                    ExportBookmarkCache();
+                },
+            },
+            importBookmarkCache: {
+                label: Texts[g_language].setting_importCache,
+                type: 'button',
+                click: () => {
+                    ImportBookmarkCache();
+                },
             },
 
             enableNovelSort: {
@@ -4717,10 +4797,37 @@ function PixivSK(callback) {
     let failCount = 0;
     let cachedCount = 0;
     let nextBatchIndex = 0;
+    let lastProgressAt = 0;
+
+    // 命中缓存的作品走的是微任务链，上千次连续调用不会让出主线程。而每次进度更新都要
+    // 两次 jQuery 选择器查询（$('#loading').find('#progress')）加一次 DOM 文本写入，
+    // 缓存越大命中越多，这些写入就越是挤在一起，最终把主线程堵住——表现为预览、
+    // 打开设置面板时卡顿。所以把「计数」和「渲染」拆开：计数每次都加，DOM 最快每
+    // 120ms 才真正写一次。
+    let renderProgress = () => {
+        let text = Texts[g_language].sort_getBookmarkCount.replace('%1', completeCount).replace('%2', works.length);
+        if (cachedCount > 0) {
+            text += Texts[g_language].sort_cachedCount.replace('%1', cachedCount);
+        }
+        if (failCount > 0) {
+            text += ' (' + failCount + ' failed)';
+        }
+        $('#loading').find('#progress').text(text);
+    };
+    let updateProgress = () => {
+        ++completeCount;
+        let now = Date.now();
+        if (now - lastProgressAt < 120) {
+            return;
+        }
+        lastProgressAt = now;
+        renderProgress();
+    };
 
     let GetBookmarkCountUsingFetch = function (index) {
         if (index >= works.length) {
-            // 全部处理完，一次性写回缓存
+            // 全部处理完，补一次最终进度，再一次性写回缓存
+            renderProgress();
             SaveBookmarkCache();
             clearAndUpdateWorks();
             return;
@@ -4730,16 +4837,6 @@ function PixivSK(callback) {
         nextBatchIndex = index + batchCount;
         let completed = 0;
 
-        let updateProgress = () => {
-            let text = Texts[g_language].sort_getBookmarkCount.replace('%1', ++completeCount).replace('%2', works.length);
-            if (cachedCount > 0) {
-                text += Texts[g_language].sort_cachedCount.replace('%1', cachedCount);
-            }
-            if (failCount > 0) {
-                text += ' (' + failCount + ' failed)';
-            }
-            $('#loading').find('#progress').text(text);
-        };
         let onSettled = () => {
             if (++completed === batchCount) {
                 GetBookmarkCountUsingFetch(nextBatchIndex);
@@ -5998,6 +6095,115 @@ function ClearBookmarkCache() {
     g_sessionCachedIds.clear();
     g_previewCacheRequested.clear();
     iLog.i('收藏数缓存已清空。');
+}
+// 设置面板里的「缓存条数」按钮同时充当显示区，点一下刷新
+function RefreshBookmarkCacheInfo() {
+    let count = Object.keys(LoadBookmarkCache()).length;
+    let el = document.getElementById('gmc-frame_field_bookmarkCacheInfo');
+    if (el) {
+        el.value = Texts[g_language].setting_cacheInfo.replace('%1', count);
+    }
+    return count;
+}
+// 导出缓存。本脚本只有 unsafeWindow + GM_xmlhttpRequest 权限，没有 GM_download，
+// 所以走浏览器原生的 Blob + <a download> 下载。
+function ExportBookmarkCache() {
+    let cache = LoadBookmarkCache();
+    let count = Object.keys(cache).length;
+    if (count === 0) {
+        alert(Texts[g_language].cacheExportEmpty);
+        return;
+    }
+    let pad = (n) => (n < 10 ? '0' + n : '' + n);
+    let now = new Date();
+    let stamp = now.getFullYear() + pad(now.getMonth() + 1) + pad(now.getDate()) + '_'
+        + pad(now.getHours()) + pad(now.getMinutes()) + pad(now.getSeconds());
+    let payload = {
+        script: 'PixivPreviewer Cache Mod',
+        exportedAt: now.toISOString(),
+        count: count,
+        entries: cache,
+    };
+    let url = URL.createObjectURL(new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+    let a = document.createElement('a');
+    a.href = url;
+    a.download = 'pixiv-bookmark-cache-' + stamp + '.json';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    iLog.i('收藏数缓存已导出，共 ' + count + ' 条。');
+    alert(Texts[g_language].cacheExportDone.replace('%1', count));
+}
+// 导入缓存。既能读本脚本导出的文件（{entries:{...}}），也接受裸的
+// {id: [收藏, 点赞, 浏览, 时间戳]}。同一个 id 取时间戳更新的那条，不覆盖更新的本地值。
+function ImportBookmarkCache() {
+    let input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,application/json';
+    input.style.display = 'none';
+    let cleanup = function () {
+        if (input.parentNode) {
+            input.parentNode.removeChild(input);
+        }
+    };
+    input.addEventListener('change', function () {
+        let file = input.files && input.files[0];
+        if (!file) {
+            cleanup();
+            return;
+        }
+        let reader = new FileReader();
+        reader.onload = function () {
+            try {
+                let data = JSON.parse(String(reader.result));
+                let entries = data && data.entries ? data.entries : data;
+                if (!entries || typeof entries !== 'object') {
+                    throw new Error('JSON 结构不符合预期');
+                }
+                let cache = LoadBookmarkCache();
+                let added = 0, updated = 0, skipped = 0;
+                for (let id in entries) {
+                    if (!Object.prototype.hasOwnProperty.call(entries, id)) {
+                        continue;
+                    }
+                    let v = entries[id];
+                    if (!Array.isArray(v) || typeof v[3] !== 'number') {
+                        ++skipped;
+                        continue;
+                    }
+                    let cur = cache[id];
+                    if (!cur) {
+                        cache[id] = v;
+                        ++added;
+                    } else if (v[3] > cur[3]) {
+                        cache[id] = v;
+                        ++updated;
+                    } else {
+                        ++skipped;
+                    }
+                }
+                g_bookmarkCacheDirty = true;
+                SaveBookmarkCache();
+                RefreshBookmarkCacheInfo();
+                iLog.i('收藏数缓存导入完成：新增 ' + added + ' 条，更新 ' + updated + ' 条，跳过 ' + skipped + ' 条。');
+                alert(Texts[g_language].cacheImportDone.replace('%1', added).replace('%2', updated)
+                    .replace('%3', skipped).replace('%4', Object.keys(cache).length));
+            } catch (e) {
+                iLog.e('收藏数缓存导入失败：' + e);
+                alert(Texts[g_language].cacheImportFailed + e);
+            }
+            cleanup();
+        };
+        reader.onerror = function () {
+            alert(Texts[g_language].cacheImportFailed + reader.error);
+            cleanup();
+        };
+        reader.readAsText(file);
+    });
+    document.body.appendChild(input);
+    input.click();
 }
 // 单条写入延迟落盘：连续预览多件作品时避免每件都序列化整块缓存
 function ScheduleBookmarkCacheSave() {
