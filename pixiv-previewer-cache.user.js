@@ -5,7 +5,7 @@
 // @name:zh-CN          Pixiv Previewer 收藏数缓存版
 // @name:zh-TW          Pixiv Previewer 收藏數快取版
 // @namespace           https://github.com/nasaeds/PixivPreviewer-cache
-// @version             3.8.8.0
+// @version             3.8.8.1
 // @description         Display preview images (support single image, multiple images, moving images); Download animation(.gif); Sorting the search page by favorite count(and display it).
 // @description:zh-CN   显示预览图（支持单图，多图，动图）；动图 GIF 下载；搜索页按热门度（收藏数）排序并显示收藏数。本修改版新增：收藏数本地缓存（避开 pixiv 速率限制）、深浅色主题、缓存状态标记。
 // @description:ja      プレビュー画像の表示（単一画像、複数画像、動画のサポート）; アニメーションのダウンロード（.gif）; お気に入りの数で検索ページをソートします（そして表示します）。
@@ -876,9 +876,8 @@ Texts[Lang.zh_CN] = {
     setting_maxXhr: '收藏数并发（推荐 64）',
     setting_bookmarkCache: '收藏数缓存有效期',
     setting_bookmarkCacheHelp: '缓存后不再重复请求收藏数，直接读取本地值；数值后带⚡表示来自缓存。',
-    setting_worksPerPage: '每页显示的作品数',
+    setting_worksPerPage: '每页显示的作品数（0 表示全部渲染）',
     setting_worksPageMode: '作品列表翻页方式',
-    worksPerPageLabels: ['24 项', '48 项', '96 项', '192 项', '全部渲染'],
     worksPageModeLabels: ['分页器', '无限滚动'],
     pager_prev: '上一页',
     pager_next: '下一页',
@@ -964,9 +963,8 @@ Texts[Lang.en_US] = {
     setting_maxXhr: 'Bookmark count concurrency (recommended 64)',
     setting_bookmarkCache: 'Bookmark count cache lifetime',
     setting_bookmarkCacheHelp: 'Cached counts are reused instead of re-fetched; a value followed by ⚡ came from cache.',
-    setting_worksPerPage: 'Works rendered per page',
+    setting_worksPerPage: 'Works rendered per page (0 = render all)',
     setting_worksPageMode: 'Paging mode for the work list',
-    worksPerPageLabels: ['24', '48', '96', '192', 'All'],
     worksPageModeLabels: ['Paginator', 'Infinite scroll'],
     pager_prev: 'Previous',
     pager_next: 'Next',
@@ -1049,9 +1047,8 @@ Texts[Lang.ru_RU] = {
     setting_maxXhr: 'Количество закладок (рекомендуется 64)',
     setting_bookmarkCache: 'Срок хранения кэша закладок',
     setting_bookmarkCacheHelp: 'Значения берутся из кэша вместо повторных запросов; ⚡ означает, что значение из кэша.',
-    setting_worksPerPage: 'Работ на странице',
+    setting_worksPerPage: 'Работ на странице (0 = все)',
     setting_worksPageMode: 'Режим перелистывания списка работ',
-    worksPerPageLabels: ['24', '48', '96', '192', 'Все'],
     worksPageModeLabels: ['Страницы', 'Бесконечная прокрутка'],
     pager_prev: 'Назад',
     pager_next: 'Вперёд',
@@ -1133,9 +1130,8 @@ Texts[Lang.ja_JP] = {
     setting_maxXhr: 'ブックマーク数の同時リクエスト数（推奨64）',
     setting_bookmarkCache: 'ブックマーク数のキャッシュ有効期間',
     setting_bookmarkCacheHelp: 'キャッシュ後は再取得せずローカル値を使用します。数値の後の⚡はキャッシュ由来を示します。',
-    setting_worksPerPage: '1ページに表示する作品数',
+    setting_worksPerPage: '1ページに表示する作品数（0 で全件）',
     setting_worksPageMode: '作品一覧のページ送り方式',
-    worksPerPageLabels: ['24 件', '48 件', '96 件', '192 件', 'すべて'],
     worksPageModeLabels: ['ページャー', '無限スクロール'],
     pager_prev: '前へ',
     pager_next: '次へ',
@@ -3476,9 +3472,8 @@ function gmcInit() {
             // 几千件时页面会持续卡顿，所以这里限流。
             worksPerPage: {
                 label: Texts[g_language].setting_worksPerPage,
-                type: 'select',
-                options: ['24', '48', '96', '192', 'all'],
-                default: '96',
+                type: 'text',
+                default: 60,
             },
             // 翻页方式：分页器（DOM 里始终只有一页）或无限滚动（滚到底追加）
             worksPageMode: {
@@ -6047,8 +6042,19 @@ function ConvertSettingsFromGMC() {
         'previewDelay': parseInt(GMC.get('previewDelay')) || 200,
         'previewByKey': GMC.get('previewByKey'),
         'pageCount': parseInt(GMC.get('pageCount')) || 3,
-        // 'all' 表示不分页（退回原来的全部渲染）
-        'worksPerPage': GMC.get('worksPerPage') === 'all' ? 0 : (parseInt(GMC.get('worksPerPage')) || 96),
+        // 0 表示不分页（退回原来的全部渲染）；非法值回退 60。
+        // 'all' 是上一版下拉框的取值，这里做一次兼容迁移。
+        'worksPerPage': (function () {
+            let raw = GMC.get('worksPerPage');
+            if (raw === 'all') {
+                return 0;
+            }
+            let parsed = parseInt(raw);
+            if (isNaN(parsed) || parsed < 0) {
+                return 60;
+            }
+            return parsed;
+        })(),
         'worksPageMode': GMC.get('worksPageMode') || 'pager',
         'favFilter': parseInt(GMC.get('favFilter')) || 0,
         'aiFilter': GMC.get('aiFilter'),
@@ -6165,16 +6171,6 @@ function LocalizeCacheExpireOptions() {
 }
 // 「每页显示的作品数」「翻页方式」的显示文字跟随界面语言；存储值保持语言中立
 function LocalizeWorksListOptions() {
-    let sizeLabels = Texts[g_language] && Texts[g_language].worksPerPageLabels;
-    if (sizeLabels && sizeLabels.length) {
-        const canonicalSizes = ['24', '48', '96', '192', 'all'];
-        document.querySelectorAll('#gmc-frame_field_worksPerPage option').forEach(function (option) {
-            let index = canonicalSizes.indexOf(option.value);
-            if (index >= 0 && sizeLabels[index]) {
-                option.textContent = sizeLabels[index];
-            }
-        });
-    }
     let modeLabels = Texts[g_language] && Texts[g_language].worksPageModeLabels;
     if (modeLabels && modeLabels.length) {
         const canonicalModes = ['pager', 'infinite'];
