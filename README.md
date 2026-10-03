@@ -33,6 +33,8 @@
 | **预览写入开关** | 可分别控制「搜索页以外的预览」和「搜索页预览」是否记录，另有「仅未缓存时获取」选项 |
 | **缓存条数显示** | 设置面板里直接显示当前缓存了多少条 |
 | **缓存导出 / 导入** | 把缓存导成 JSON 文件备份，随时导入恢复（换浏览器、清数据、重装都可以用） |
+| **作品列表分页 / 虚拟渲染** | 一次排序拿到的作品不再全部塞进 DOM，只渲染当前这一页；每页件数与翻页方式都可在设置里选 |
+| **空闲卡顿修复** | 修掉了「每秒对全部作品做一次全量扫描」的定时器逻辑——这是页面放着不动、CPU 仍然高企的主因 |
 | **深浅色主题** | 设置面板右上角圆形按钮切换，选择会记住 |
 | **档位本地化** | 缓存有效期下拉框的显示文字跟随界面语言（存储值不变，换语言不丢配置） |
 
@@ -68,6 +70,35 @@
 | **缓存条数：N（点击刷新）** | — | 显示当前缓存条数，点一下可刷新 |
 | **导出缓存** | — | 把缓存下载成一个 `pixiv-bookmark-cache-<时间>.json` 文件 |
 | **导入缓存** | — | 选择之前导出的 JSON 合并进来。同一个作品取**时间戳更新**的那条，不会用旧数据覆盖新数据；也接受裸的 `{作品ID: [收藏, 点赞, 浏览, 时间戳]}` 格式 |
+| **每页显示的作品数** | `96 项` | 一次往页面里放多少件作品。可选 24 / 48 / 96 / 192 / `全部渲染`。原版是全部渲染，作品一多页面会持续卡顿 |
+| **作品列表翻页方式** | `分页器` | `分页器`=DOM 里始终只有当前页（最省资源）；`无限滚动`=滚到底部自动追加下一批，另有「加载更多」按钮兜底 |
+
+---
+
+## 性能：为什么不把作品一次性全部渲染
+
+原版（以及 3.8.7.x 之前的本修改版）会把一次排序拿到的**全部**作品一次性塞进 DOM。
+把「每次排序时统计的最大页数」调大（比如 96 页 ≈ 5760 件）会同时踩到两个坑：
+
+1. **DOM 元素过多** —— 几千个元素同时参与布局与合成，滚动和悬停都会变卡，内存能涨到 GB 级。
+2. **每秒一次的全量扫描** —— 搜索页被标记为「有自动加载」，脚本注册了一个每 1000ms 执行的
+   定时器用于发现 pixiv 懒加载出来的新作品。它每次都遍历容器里的**每一个**元素，各做多次
+   DOM 查询（`find('a')` / `find('svg')` / `find('span')` / `attr` / `addClass`），最后再构造
+   一个等长的 jQuery 集合。作品多时单次就要几百毫秒，而绝大多数轮次的结论都是「没有变化」——
+   **这才是页面放着不动 CPU 仍然高企、切到后台也降不下来的直接原因**（它也让性能分析工具
+   很难看出问题：耗时都是几十毫秒的碎片，不构成单个长任务）。
+
+3.8.8.0 的改法：
+
+- 作品列表改成**按页渲染**，DOM 里只保留「每页显示的作品数」那么多元素（默认 96）
+- 那个每秒的定时器加了**前置判断**：先数元素个数，没变化就直接返回，不做全量扫描
+  （个数变化时才真正扫描，所以 pixiv 的懒加载检测依然有效）
+- 列表中的收藏按钮、作者卡片改为**事件委托**，翻页时不需要重新绑定几千个监听器
+
+实测：元素个数不变时，一小时内对该列表的扫描次数从 **3601 次降到 1 次**。
+
+> 想要原来「一屏到底」的体验，把「每页显示的作品数」设为 `全部渲染` 即可，
+> 但会退回上面两个坑，建议只在数据量小时这么用。
 
 ---
 
@@ -176,5 +207,12 @@ A modified fork of [PixivPreviewer](https://github.com/Ocrosoft/PixivPreviewer) 
 The upstream script re-fetches every artwork's bookmark count on each sort, which pixiv rate-limits. This fork **caches bookmark counts in localStorage** with a configurable TTL, so repeat searches read local values instead of hitting the API. Also adds light/dark themes and cache-status markers (⚡ = value read from cache, 📌 = value just fetched and cached).
 
 The settings panel also shows the current cache size and can **export / import** the cache as a JSON file (useful as a backup — merge on import keeps the newer entry per artwork).
+
+**Performance (3.8.8.0)**: the work list is now rendered page by page instead of dumping every
+artwork into the DOM at once, and the search page's 1-second auto-load poll no longer re-scans the
+whole list on every tick (it first compares the child count and bails out when nothing changed —
+measured: 3601 scans per hour down to 1). Both were the cause of high idle CPU and memory growth
+when a large "maximum pages per sort" was used. Settings: *works per page* and *paging mode*
+(paginator / infinite scroll).
 
 Licensed under **GPLv3**, same as upstream. No warranty.

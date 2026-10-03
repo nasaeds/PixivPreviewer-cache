@@ -5,7 +5,7 @@
 // @name:zh-CN          Pixiv Previewer 收藏数缓存版
 // @name:zh-TW          Pixiv Previewer 收藏數快取版
 // @namespace           https://github.com/nasaeds/PixivPreviewer-cache
-// @version             3.8.7.2
+// @version             3.8.8.0
 // @description         Display preview images (support single image, multiple images, moving images); Download animation(.gif); Sorting the search page by favorite count(and display it).
 // @description:zh-CN   显示预览图（支持单图，多图，动图）；动图 GIF 下载；搜索页按热门度（收藏数）排序并显示收藏数。本修改版新增：收藏数本地缓存（避开 pixiv 速率限制）、深浅色主题、缓存状态标记。
 // @description:ja      プレビュー画像の表示（単一画像、複数画像、動画のサポート）; アニメーションのダウンロード（.gif）; お気に入りの数で検索ページをソートします（そして表示します）。
@@ -876,6 +876,15 @@ Texts[Lang.zh_CN] = {
     setting_maxXhr: '收藏数并发（推荐 64）',
     setting_bookmarkCache: '收藏数缓存有效期',
     setting_bookmarkCacheHelp: '缓存后不再重复请求收藏数，直接读取本地值；数值后带⚡表示来自缓存。',
+    setting_worksPerPage: '每页显示的作品数',
+    setting_worksPageMode: '作品列表翻页方式',
+    worksPerPageLabels: ['24 项', '48 项', '96 项', '192 项', '全部渲染'],
+    worksPageModeLabels: ['分页器', '无限滚动'],
+    pager_prev: '上一页',
+    pager_next: '下一页',
+    pager_info: '第 %1 / %2 页 · 共 %3 件',
+    pager_loadMore: '加载更多',
+    pager_loaded: '已显示 %1 / %2 件',
     setting_cacheInfo: '缓存条数：%1（点击刷新）',
     setting_exportCache: '导出缓存',
     setting_importCache: '导入缓存',
@@ -955,6 +964,15 @@ Texts[Lang.en_US] = {
     setting_maxXhr: 'Bookmark count concurrency (recommended 64)',
     setting_bookmarkCache: 'Bookmark count cache lifetime',
     setting_bookmarkCacheHelp: 'Cached counts are reused instead of re-fetched; a value followed by ⚡ came from cache.',
+    setting_worksPerPage: 'Works rendered per page',
+    setting_worksPageMode: 'Paging mode for the work list',
+    worksPerPageLabels: ['24', '48', '96', '192', 'All'],
+    worksPageModeLabels: ['Paginator', 'Infinite scroll'],
+    pager_prev: 'Previous',
+    pager_next: 'Next',
+    pager_info: 'Page %1 / %2 · %3 works',
+    pager_loadMore: 'Load more',
+    pager_loaded: '%1 / %2 works shown',
     setting_cacheInfo: 'Cached entries: %1 (click to refresh)',
     setting_exportCache: 'Export cache',
     setting_importCache: 'Import cache',
@@ -1031,6 +1049,15 @@ Texts[Lang.ru_RU] = {
     setting_maxXhr: 'Количество закладок (рекомендуется 64)',
     setting_bookmarkCache: 'Срок хранения кэша закладок',
     setting_bookmarkCacheHelp: 'Значения берутся из кэша вместо повторных запросов; ⚡ означает, что значение из кэша.',
+    setting_worksPerPage: 'Работ на странице',
+    setting_worksPageMode: 'Режим перелистывания списка работ',
+    worksPerPageLabels: ['24', '48', '96', '192', 'Все'],
+    worksPageModeLabels: ['Страницы', 'Бесконечная прокрутка'],
+    pager_prev: 'Назад',
+    pager_next: 'Вперёд',
+    pager_info: 'Страница %1 / %2 · работ: %3',
+    pager_loadMore: 'Загрузить ещё',
+    pager_loaded: 'Показано %1 / %2',
     setting_cacheInfo: 'Записей в кэше: %1 (нажмите, чтобы обновить)',
     setting_exportCache: 'Экспорт кэша',
     setting_importCache: 'Импорт кэша',
@@ -1106,6 +1133,15 @@ Texts[Lang.ja_JP] = {
     setting_maxXhr: 'ブックマーク数の同時リクエスト数（推奨64）',
     setting_bookmarkCache: 'ブックマーク数のキャッシュ有効期間',
     setting_bookmarkCacheHelp: 'キャッシュ後は再取得せずローカル値を使用します。数値の後の⚡はキャッシュ由来を示します。',
+    setting_worksPerPage: '1ページに表示する作品数',
+    setting_worksPageMode: '作品一覧のページ送り方式',
+    worksPerPageLabels: ['24 件', '48 件', '96 件', '192 件', 'すべて'],
+    worksPageModeLabels: ['ページャー', '無限スクロール'],
+    pager_prev: '前へ',
+    pager_next: '次へ',
+    pager_info: '%1 / %2 ページ · 全 %3 件',
+    pager_loadMore: 'もっと読み込む',
+    pager_loaded: '%1 / %2 件を表示中',
     setting_cacheInfo: 'キャッシュ件数：%1（クリックで更新）',
     setting_exportCache: 'キャッシュをエクスポート',
     setting_importCache: 'キャッシュをインポート',
@@ -3259,6 +3295,7 @@ function gmcOpened() {
     $('#gmc-frame_closeBtn').text(Texts[g_language].setting_close);
     ensureThemeToggleButton();
     LocalizeCacheExpireOptions();
+    LocalizeWorksListOptions();
     let masterCacheEl = document.getElementById('gmc-frame_field_cacheOnPreview');
     if (masterCacheEl && !masterCacheEl.dataset.ppBound) {
         masterCacheEl.dataset.ppBound = '1';
@@ -3435,6 +3472,21 @@ function gmcInit() {
                 type: 'text',
                 default: 3,
             },
+            // 每页渲染多少件作品。原实现把一次排序拿到的全部作品一次性塞进 DOM，
+            // 几千件时页面会持续卡顿，所以这里限流。
+            worksPerPage: {
+                label: Texts[g_language].setting_worksPerPage,
+                type: 'select',
+                options: ['24', '48', '96', '192', 'all'],
+                default: '96',
+            },
+            // 翻页方式：分页器（DOM 里始终只有一页）或无限滚动（滚到底追加）
+            worksPageMode: {
+                label: Texts[g_language].setting_worksPageMode,
+                type: 'select',
+                options: ['pager', 'infinite'],
+                default: 'pager',
+            },
             favFilter: {
                 label: Texts[g_language].setting_hideWork,
                 type: "text",
@@ -3595,6 +3647,10 @@ function gmcInit() {
 
 /* ---------------------------------------- 预览 ---------------------------------------- */
 let autoLoadInterval = null;
+// 上一次「自动加载」检查时容器里的元素个数。用来在没变化时跳过全量扫描。
+let lastAutoLoadChildCount = -1;
+// 预览的绑定/解绑函数（定义在 PixivPreview() 内部），供排序/分页重渲染后重新挂载。
+let ppPreviewHooks = { activate: null, deactivate: null };
 function PixivPreview() {
     // 最终需要显示的预览图ID，用于避免鼠标滑过多张图片时，最终显示的图片错误
     let previewTargetIllustId = '';
@@ -3899,6 +3955,7 @@ function PixivPreview() {
         // 这个页面有自动加载
         if (Pages[g_pageType].HasAutoLoad && autoLoadInterval == null) {
             autoLoadInterval = setInterval(ProcessAutoLoad, 1000);
+            lastAutoLoadChildCount = -1;
             iLog.d('Auto load interval set.');
         }
 
@@ -4240,6 +4297,22 @@ function PixivPreview() {
             return;
         }
 
+        // 先花极小的代价数一下容器里的元素个数，没变化就直接返回。
+        //
+        // 原来这里每秒钟都会执行完整的 ProcessPageElements()：对容器里的每一个
+        // 作品做多次 DOM 查询（find('a') / find('svg') / find('span') / attr / addClass），
+        // 再构造一个等长的 jQuery 集合。作品多的时候（96 页约 5760 件）每秒要吃掉
+        // 几百毫秒主线程，而绝大多数次数的结论都是「没有变化」——这正是页面放着不动
+        // CPU 却居高不下的原因。数元素个数是 O(1) 的，用它先筛掉无变化的轮次。
+        let autoLoadContainer = Pages[g_pageType].GetImageListContainer();
+        if (autoLoadContainer != null) {
+            let childCount = $(autoLoadContainer).children().length;
+            if (childCount === lastAutoLoadChildCount) {
+                return;
+            }
+            lastAutoLoadChildCount = childCount;
+        }
+
         let oldReturnMap = Pages[g_pageType].GetProcessedPageElements();
         let newReturnMap = Pages[g_pageType].ProcessPageElements();
 
@@ -4263,6 +4336,10 @@ function PixivPreview() {
 
         iLog.d('Page not change.');
     }
+
+    // 把绑定/解绑暴露给排序和分页逻辑：重渲染后需要重新挂载预览
+    ppPreviewHooks.activate = ActivePreview;
+    ppPreviewHooks.deactivate = DeactivePreview;
 
     // 开启预览
     ActivePreview();
@@ -4963,7 +5040,10 @@ function PixivSK(callback) {
                 authorImage.addClass('ppAuthorImage');
                 bookmarkSvg.attr('class', bookmarkSvg.attr('class') + ' ppBookmarkSvg');
                 additionTagDiv.addClass('ppAdditionTag');
-                bookmarkCountDiv.addClass('ppBookmarkCount');
+                bookmarkDiv.addClass('ppBookmarkCount');
+                // 收藏按钮的父节点：分页重渲染时用事件委托绑定点击，避免重复绑定
+                let bookmarkButton = bookmarkSvg.parent();
+                bookmarkButton.addClass('ppBookmarkIcon');
 
                 img.attr('src', '');
                 let animationTag = img.next();
@@ -4984,8 +5064,31 @@ function PixivSK(callback) {
                 }
             }
 
-            $(container).empty();
-            for (let i = 0; i < works.length; i++) {
+            // ── 分页 / 虚拟渲染 ────────────────────────────────────────────────
+            // 原来会把一次排序拿到的全部作品（可能几千件）一次性塞进 DOM。元素一多，
+            // 布局、合成、以及每秒一次的自动加载扫描都会变得非常昂贵。这里改成按页渲染：
+            // DOM 里始终只保留「每页显示的作品数」那么多元素。
+            let perPage = g_settings.worksPerPage;      // 0 = 不分页（退回原来的全部渲染）
+            let pageMode = g_settings.worksPageMode;    // 'infinite' 无限滚动 | 'pager' 分页器
+            let totalPages = perPage > 0 ? Math.max(1, Math.ceil(works.length / perPage)) : 1;
+            let currentPage = 0;
+            let renderedUpTo = 0;
+            let infiniteObserver = null;
+
+            let scrollToListTop = function () {
+                let offset = $(container).offset();
+                if (offset) {
+                    window.scrollTo({ top: Math.max(0, offset.top - 120), behavior: 'smooth' });
+                }
+            };
+
+            // 把 [from, to) 区间的作品渲染进容器。replace=false 时追加（无限滚动用）
+            let renderWorksRange = function (from, to, replace) {
+                if (replace) {
+                    $(container).empty();
+                }
+                let end = Math.min(to, works.length);
+                for (let i = from; i < end; i++) {
                 let li = $(imageElementTemplate.cloneNode(true));
 
                 let regularUrl = works[i].url;
@@ -5034,10 +5137,126 @@ function PixivSK(callback) {
                 }
 
                 $(container).append(li);
-            }
+                }
+                renderedUpTo = Math.max(renderedUpTo, end);
+            };
 
-            // 监听加入书签点击事件，监听父节点，但是按照 <svg> 节点处理
-            $('.ppBookmarkSvg').parent().on('click', function (ev) {
+            // 容器里的元素换了之后统一收尾：重新识别元素、重置自动加载计数、重挂预览
+            let afterWorksRendered = function () {
+                Pages[PageType.Search].ProcessPageElements();
+                lastAutoLoadChildCount = $(container).children().length;
+                if (ppPreviewHooks.activate) {
+                    ppPreviewHooks.activate();
+                }
+                buildPager();
+            };
+
+            // 重新渲染当前页（分页器翻页用）
+            let goToPage = function (page) {
+                currentPage = Math.max(0, Math.min(page, totalPages - 1));
+                // 先解绑预览（它绑定在上一批元素上），换完 DOM 再由 afterWorksRendered 重挂
+                if (ppPreviewHooks.deactivate) {
+                    ppPreviewHooks.deactivate();
+                }
+                let from = perPage > 0 ? currentPage * perPage : 0;
+                let to = perPage > 0 ? from + perPage : works.length;
+                renderWorksRange(from, to, true);
+                afterWorksRendered();
+            };
+
+            // 无限滚动：把下一批追加进来
+            let appendNextBatch = function () {
+                if (renderedUpTo >= works.length) {
+                    return;
+                }
+                if (ppPreviewHooks.deactivate) {
+                    ppPreviewHooks.deactivate();
+                }
+                let to = Math.min(renderedUpTo + (perPage > 0 ? perPage : works.length), works.length);
+                renderWorksRange(renderedUpTo, to, false);
+                afterWorksRendered();
+            };
+
+            // 分页条（分页器 / 无限滚动共用），只重建 DOM，不做逐元素操作，代价可忽略
+            let buildPager = function () {
+                let oldBar = document.getElementById('pp-worksPager');
+                if (oldBar) {
+                    oldBar.remove();
+                }
+                if (infiniteObserver) {
+                    infiniteObserver.disconnect();
+                    infiniteObserver = null;
+                }
+                if (perPage <= 0 || works.length <= perPage) {
+                    return;                         // 一页装得下，不需要分页条
+                }
+
+                let mkButton = function (label, enabled, onclick) {
+                    let button = document.createElement('button');
+                    button.setAttribute('type', 'button');
+                    button.textContent = label;
+                    button.setAttribute('style', 'padding:8px 18px;border:1px solid rgba(128,128,128,0.35);'
+                        + 'border-radius:20px;background:transparent;color:inherit;font:inherit;cursor:pointer;');
+                    if (enabled) {
+                        button.addEventListener('click', onclick);
+                    } else {
+                        button.disabled = true;
+                        button.style.opacity = '0.35';
+                        button.style.cursor = 'default';
+                    }
+                    return button;
+                };
+
+                let bar = document.createElement('div');
+                bar.id = 'pp-worksPager';
+                bar.setAttribute('style', 'display:flex;align-items:center;justify-content:center;'
+                    + 'gap:12px;margin:18px 0 36px;font-size:14px;');
+                let info = document.createElement('span');
+                info.setAttribute('style', 'opacity:0.75;');
+
+                if (pageMode === 'infinite') {
+                    if (renderedUpTo < works.length) {
+                        bar.appendChild(mkButton(Texts[g_language].pager_loadMore, true, appendNextBatch));
+                    } else {
+                        bar.appendChild(mkButton(Texts[g_language].pager_loadMore, false, null));
+                    }
+                    info.textContent = Texts[g_language].pager_loaded
+                        .replace('%1', Math.min(renderedUpTo, works.length))
+                        .replace('%2', works.length);
+                    bar.appendChild(info);
+                } else {
+                    bar.appendChild(mkButton(Texts[g_language].pager_prev, currentPage > 0,
+                        () => { goToPage(currentPage - 1); scrollToListTop(); }));
+                    info.textContent = Texts[g_language].pager_info
+                        .replace('%1', currentPage + 1)
+                        .replace('%2', totalPages)
+                        .replace('%3', works.length);
+                    bar.appendChild(info);
+                    bar.appendChild(mkButton(Texts[g_language].pager_next, currentPage < totalPages - 1,
+                        () => { goToPage(currentPage + 1); scrollToListTop(); }));
+                }
+                $(container).after(bar);
+
+                // 无限滚动：滚到接近底部就自动追加下一批
+                if (pageMode === 'infinite' && renderedUpTo < works.length) {
+                    let sentinel = document.createElement('div');
+                    sentinel.id = 'pp-worksSentinel';
+                    sentinel.setAttribute('style', 'height:1px;');
+                    $(bar).after(sentinel);
+                    infiniteObserver = new IntersectionObserver(function (entries) {
+                        for (let i = 0; i < entries.length; i++) {
+                            if (entries[i].isIntersecting) {
+                                appendNextBatch();
+                                return;
+                            }
+                        }
+                    }, { rootMargin: '800px 0px' });
+                    infiniteObserver.observe(sentinel);
+                }
+            };
+
+            // 监听加入书签点击事件（委托到容器：只需绑定一次，翻页后新元素照样生效）
+            $(container).on('click', '.ppBookmarkIcon', function (ev) {
                 if (g_csrfToken == '') {
                     iLog.e('No g_csrfToken, failed to add bookmark!');
                     alert('获取 Token 失败，无法添加，请到详情页操作。');
@@ -5096,7 +5315,7 @@ function PixivSK(callback) {
                 _this.parent().focus();
             });
 
-            $('.ppAuthorLink').on('mouseenter', function (e) {
+            $(container).on('mouseenter', '.ppAuthorLink', function (e) {
                 let _this = $(this);
 
                 function getOffset(e) {
@@ -5190,6 +5409,9 @@ function PixivSK(callback) {
                 }, 200);
             });
 
+            // 首屏只渲染第一页（perPage 为 0 时退回原来的「全部渲染」）
+            renderWorksRange(0, perPage > 0 ? perPage : works.length, true);
+
             if (works.length === 0) {
                 $(container).show().get(0).outerHTML = '<div class=""style="display: flex;align-items: center;justify-content: center; height: 408px;flex-flow: column;"><div class=""style="margin-bottom: 12px;color: rgba(0, 0, 0, 0.16);"><svg viewBox="0 0 16 16"size="72"style="fill: currentcolor;height: 72px;vertical-align: middle;"><path d="M8.25739 9.1716C7.46696 9.69512 6.51908 10 5.5 10C2.73858 10 0.5 7.76142 0.5 5C0.5 2.23858 2.73858 0 5.5 0C8.26142 0 10.5 2.23858 10.5 5C10.5 6.01908 10.1951 6.96696 9.67161 7.75739L11.7071 9.79288C12.0976 10.1834 12.0976 10.8166 11.7071 11.2071C11.3166 11.5976 10.6834 11.5976 10.2929 11.2071L8.25739 9.1716ZM8.5 5C8.5 6.65685 7.15685 8 5.5 8C3.84315 8 2.5 6.65685 2.5 5C2.5 3.34315 3.84315 2 5.5 2C7.15685 2 8.5 3.34315 8.5 5Z"transform="translate(2.25 2.25)"fill-rule="evenodd"clip-rule="evenodd"></path></svg></div><span class="sc-LzMCO fLDUzU">'
                     + Texts[g_language].sort_noWork.replace('%1', worksCount) + '</span></div>';
@@ -5213,7 +5435,8 @@ function PixivSK(callback) {
                 $(container).before(sortDiv);
             }
 
-            Pages[PageType.Search].ProcessPageElements();
+            // 收尾：重新识别元素、重置自动加载计数、重挂预览、生成分页条
+            afterWorksRendered();
 
             // 监听键盘的左右键，用来翻页
             $(document).keydown(function (e) {
@@ -5824,6 +6047,9 @@ function ConvertSettingsFromGMC() {
         'previewDelay': parseInt(GMC.get('previewDelay')) || 200,
         'previewByKey': GMC.get('previewByKey'),
         'pageCount': parseInt(GMC.get('pageCount')) || 3,
+        // 'all' 表示不分页（退回原来的全部渲染）
+        'worksPerPage': GMC.get('worksPerPage') === 'all' ? 0 : (parseInt(GMC.get('worksPerPage')) || 96),
+        'worksPageMode': GMC.get('worksPageMode') || 'pager',
         'favFilter': parseInt(GMC.get('favFilter')) || 0,
         'aiFilter': GMC.get('aiFilter'),
         'aiOnly': GMC.get('aiOnly'),
@@ -5936,6 +6162,29 @@ function LocalizeCacheExpireOptions() {
             option.textContent = labels[index];
         }
     });
+}
+// 「每页显示的作品数」「翻页方式」的显示文字跟随界面语言；存储值保持语言中立
+function LocalizeWorksListOptions() {
+    let sizeLabels = Texts[g_language] && Texts[g_language].worksPerPageLabels;
+    if (sizeLabels && sizeLabels.length) {
+        const canonicalSizes = ['24', '48', '96', '192', 'all'];
+        document.querySelectorAll('#gmc-frame_field_worksPerPage option').forEach(function (option) {
+            let index = canonicalSizes.indexOf(option.value);
+            if (index >= 0 && sizeLabels[index]) {
+                option.textContent = sizeLabels[index];
+            }
+        });
+    }
+    let modeLabels = Texts[g_language] && Texts[g_language].worksPageModeLabels;
+    if (modeLabels && modeLabels.length) {
+        const canonicalModes = ['pager', 'infinite'];
+        document.querySelectorAll('#gmc-frame_field_worksPageMode option').forEach(function (option) {
+            let index = canonicalModes.indexOf(option.value);
+            if (index >= 0 && modeLabels[index]) {
+                option.textContent = modeLabels[index];
+            }
+        });
+    }
 }
 // 搜索页预览子开关只在主开关开启时可交互
 function UpdateCacheOptionInteractivity() {
